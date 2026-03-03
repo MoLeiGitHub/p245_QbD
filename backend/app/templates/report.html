@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ report.title }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
+    h1, h2 { color: #153e75; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    th, td { border: 1px solid #ddd; padding: 6px; }
+    th { background: #f4f6f8; text-align: left; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>{{ report.title }}</h1>
+  <p class="muted">Study: {{ study.name }} | Version: {{ report.version }} | Status: {{ report.status.value }}</p>
+
+  <h2>Study Definition</h2>
+  <table>
+    <tr><th>Design Type</th><td>{{ study.design_type.value }}</td></tr>
+    <tr><th>Factors</th><td>{{ study.factors | length }}</td></tr>
+    <tr><th>Responses</th><td>{{ study.responses | length }}</td></tr>
+  </table>
+
+  <h2>Analysis Summary</h2>
+  {% if analysis %}
+    {% for name, model in analysis.get('responses', {}).items() %}
+      <h3>{{ name }}</h3>
+      <p>Significant Terms: {{ model.get('significant_terms', []) }}</p>
+      <p>R²: {{ '%.4f'|format(model.get('diagnostics', {}).get('r_squared', 0)) }}</p>
+    {% endfor %}
+  {% else %}
+    <p>No analysis summary available.</p>
+  {% endif %}
+
+  <h2>Design Space</h2>
+  {% if design_space %}
+    <p>Feasible Ratio: {{ '%.2f'|format(design_space.get('feasible_ratio', 0) * 100) }}%</p>
+    <p>Feasible Bounds: {{ design_space.get('feasible_bounds') }}</p>
+  {% else %}
+    <p>Not generated.</p>
+  {% endif %}
+
+  <h2>Risk Update</h2>
+  {% if risk %}
+  <table>
+    <tr><th>Process Step</th><th>CQA</th><th>Risk</th><th>Reason</th></tr>
+    {% for row in risk.get('updated', []) %}
+      <tr>
+        <td>{{ row.get('process_step', '-') }}</td>
+        <td>{{ row.get('cqa', '-') }}</td>
+        <td>{{ row.get('risk', '-') }}</td>
+        <td>{{ row.get('reason', '-') }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p>Not generated.</p>
+  {% endif %}
+
+  <h2>Control Strategy</h2>
+  {% if control %}
+  <table>
+    <tr><th>Factor</th><th>Studied Range</th><th>Proposed Range</th><th>Purpose</th></tr>
+    {% for row in control.get('factor_controls', []) %}
+      <tr>
+        <td>{{ row.factor }}</td>
+        <td>{{ row.studied_range }}</td>
+        <td>{{ row.proposed_range }}</td>
+        <td>{{ row.purpose }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p>Not generated.</p>
+  {% endif %}
+</body>
+</html>

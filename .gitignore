@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+*.sqlite3
+alembic/versions/__pycache__/
+.DS_Store
+.streamlit/
