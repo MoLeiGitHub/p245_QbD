@@ -33,10 +33,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # API
-uvicorn backend.app.main:app --reload --port 8000
+uvicorn backend.app.main:app --reload --port 18101
 
 # Frontend（新终端）
-API_BASE_URL=http://localhost:8000 streamlit run frontend/app.py
+API_BASE_URL=http://localhost:18101 streamlit run frontend/app.py
 ```
 
 ## Docker 启动
@@ -45,8 +45,8 @@ API_BASE_URL=http://localhost:8000 streamlit run frontend/app.py
 docker compose up --build
 ```
 
-- API: `http://localhost:8000`
-- Frontend: `http://localhost:8501`
+- API: `http://localhost:18101`
+- Frontend: `http://localhost:18102`
 
 ## 关键 API
 
@@ -73,4 +73,3 @@ docker compose up --build
 cd backend
 PYTHONPATH=. pytest -q
 ```
-

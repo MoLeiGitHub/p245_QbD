@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: qbd
       POSTGRES_PASSWORD: qbd
     ports:
-      - "5432:5432"
+      - "18100:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
 
@@ -21,7 +21,7 @@ services:
     depends_on:
       - db
     ports:
-      - "8000:8000"
+      - "18101:8000"
 
   frontend:
     build:
@@ -32,7 +32,7 @@ services:
     depends_on:
       - api
     ports:
-      - "8501:8501"
+      - "18102:8501"
 
 volumes:
   pg_data:
