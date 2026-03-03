@@ -100,19 +100,41 @@ def study_section(project_id: int):
         study_name = st.text_input('Study 名称', value='Formulation Study #1')
         design_type = st.selectbox('设计类型', ['full_factorial', 'fractional_factorial', 'mixture_2comp'])
 
+        if design_type == 'mixture_2comp':
+            default_factors = [
+                {'name': 'A_MgStearate', 'low': 0.0, 'high': 1.0, 'center': 0.5},
+                {'name': 'B_Talc', 'low': 0.0, 'high': 1.0, 'center': 0.5},
+            ]
+            default_responses = [
+                {'name': 'Hardness', 'lower_bound': 9, 'upper_bound': None, 'goal': 'maximize'},
+                {'name': 'Dissolution', 'lower_bound': 80, 'upper_bound': None, 'goal': 'maximize'},
+                {'name': 'CU_RSD', 'lower_bound': None, 'upper_bound': 5, 'goal': 'minimize'},
+            ]
+        else:
+            default_factors = [
+                {'name': 'A_PSD', 'low': 10, 'high': 30, 'center': 20},
+                {'name': 'B_Disintegrant', 'low': 1, 'high': 5, 'center': 3},
+                {'name': 'C_MCC', 'low': 33.3, 'high': 66.7, 'center': 50},
+            ]
+            default_responses = [
+                {'name': 'Dissolution', 'lower_bound': 80, 'upper_bound': None, 'goal': 'maximize'},
+                {'name': 'CU_RSD', 'lower_bound': None, 'upper_bound': 5, 'goal': 'minimize'},
+                {'name': 'Hardness', 'lower_bound': 9, 'upper_bound': None, 'goal': 'maximize'},
+            ]
+
+        current_design_key = st.session_state.get('study_design_type')
+        if current_design_key != design_type:
+            st.session_state['study_design_type'] = design_type
+            st.session_state['study_factors_text'] = json.dumps(default_factors, ensure_ascii=False, indent=2)
+            st.session_state['study_responses_text'] = json.dumps(default_responses, ensure_ascii=False, indent=2)
+
         st.markdown('因子配置（JSON）')
-        default_factors = [
-            {'name': 'A_PSD', 'low': 10, 'high': 30, 'center': 20},
-            {'name': 'B_Disintegrant', 'low': 1, 'high': 5, 'center': 3},
-            {'name': 'C_MCC', 'low': 33.3, 'high': 66.7, 'center': 50},
-        ]
-        default_responses = [
-            {'name': 'Dissolution', 'lower_bound': 80, 'upper_bound': None, 'goal': 'maximize'},
-            {'name': 'CU_RSD', 'lower_bound': None, 'upper_bound': 5, 'goal': 'minimize'},
-            {'name': 'Hardness', 'lower_bound': 9, 'upper_bound': None, 'goal': 'maximize'},
-        ]
-        factors_text = st.text_area('factors', value=json.dumps(default_factors, ensure_ascii=False, indent=2), height=180)
-        responses_text = st.text_area('responses', value=json.dumps(default_responses, ensure_ascii=False, indent=2), height=180)
+        if st.button('重新加载当前设计模板'):
+            st.session_state['study_factors_text'] = json.dumps(default_factors, ensure_ascii=False, indent=2)
+            st.session_state['study_responses_text'] = json.dumps(default_responses, ensure_ascii=False, indent=2)
+
+        factors_text = st.text_area('factors', key='study_factors_text', height=180)
+        responses_text = st.text_area('responses', key='study_responses_text', height=180)
 
         if st.button('创建 Study'):
             try:
@@ -171,6 +193,10 @@ def data_import_section(study_id: int):
         files = {'file': (uploaded.name, uploaded.getvalue(), 'text/csv')}
         res = api_request('POST', f'/studies/{study_id}/results/import', files=files)
         if res:
+            if res.get('imported_runs', 0) <= 0:
+                st.error('导入成功请求已发送，但未匹配到任何 run。请确认 run_order/run_id 与当前 Study 的 DOE 运行一致。')
+            else:
+                st.success(f"已导入 {res.get('imported_runs', 0)} 条结果")
             st.json(res)
 
 
@@ -179,10 +205,16 @@ def analysis_section(study_id: int):
     if st.button('运行分析'):
         run = api_request('POST', f'/studies/{study_id}/analysis/run')
         if run:
-            st.success(f"分析任务: {run['analysis_job_id']} 状态: {run['status']}")
+            if run['status'] == 'failed':
+                st.error(f"分析任务: {run['analysis_job_id']} 状态: failed\n原因: {run.get('error_message') or '未知错误'}")
+            else:
+                st.success(f"分析任务: {run['analysis_job_id']} 状态: {run['status']}")
 
     summary = api_request('GET', f'/studies/{study_id}/analysis/summary')
     if not summary:
+        return None
+    if summary.get('status') == 'failed':
+        st.error(f"最近一次分析失败: {summary.get('error_message') or '未知错误'}")
         return None
 
     st.subheader('ANOVA 摘要')

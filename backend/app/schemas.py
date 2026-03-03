@@ -109,12 +109,14 @@ class ResultsImportOut(BaseModel):
 class AnalysisRunOut(BaseModel):
     analysis_job_id: int
     status: AnalysisStatus
+    error_message: str | None = None
 
 
 class AnalysisSummaryOut(BaseModel):
     id: int
     status: AnalysisStatus
     summary: dict[str, Any]
+    error_message: str | None = None
 
     model_config = {'from_attributes': True}
 

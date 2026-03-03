@@ -19,6 +19,7 @@ from ..models import (
     RiskAssessment,
     Run,
     Study,
+    StudyDesignType,
     User,
 )
 from ..rbac import Permission, require_permission
@@ -57,6 +58,10 @@ def create_study(payload: StudyCreate, db: Session = Depends(get_db), user: User
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Project not found')
     require_permission(db, user.id, payload.project_id, Permission.STUDY_EDIT)
+    if payload.design_type == StudyDesignType.MIXTURE_2COMP and len(payload.factors) != 2:
+        raise HTTPException(status_code=400, detail='Mixture 2-component design requires exactly 2 factors')
+    if payload.design_type in (StudyDesignType.FULL_FACTORIAL, StudyDesignType.FRACTIONAL_FACTORIAL) and len(payload.factors) < 2:
+        raise HTTPException(status_code=400, detail='Factorial designs require at least 2 factors')
 
     study = Study(
         project_id=payload.project_id,
@@ -96,13 +101,17 @@ def generate_doe(
     study = get_study_or_404(study_id, db)
     require_permission(db, user.id, study.project_id, Permission.STUDY_EDIT)
 
-    # regenerate runs from scratch
-    db.query(Result).filter(Result.run_id.in_(db.query(Run.id).filter(Run.study_id == study.id))).delete(
-        synchronize_session=False
-    )
+    # Regenerate runs from scratch. Use explicit id list to avoid SQLAlchemy 2
+    # IN-clause coercion issues that can surface as 500 errors.
+    existing_run_ids = [r.id for r in study.runs]
+    if existing_run_ids:
+        db.query(Result).filter(Result.run_id.in_(existing_run_ids)).delete(synchronize_session=False)
     db.query(Run).filter(Run.study_id == study.id).delete(synchronize_session=False)
 
-    runs = generate_runs(study, center_points=payload.center_points, fraction_p=payload.fraction_p)
+    try:
+        runs = generate_runs(study, center_points=payload.center_points, fraction_p=payload.fraction_p)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     run_models: list[Run] = []
     for idx, run in enumerate(runs, start=1):
         model = Run(study_id=study.id, run_order=idx, factor_values=run)
@@ -238,7 +247,7 @@ def run_study_analysis(study_id: int, db: Session = Depends(get_db), user: User 
     db.commit()
     db.refresh(job)
 
-    return AnalysisRunOut(analysis_job_id=job.id, status=job.status)
+    return AnalysisRunOut(analysis_job_id=job.id, status=job.status, error_message=job.error_message)
 
 
 @router.get('/{study_id}/analysis/summary', response_model=AnalysisSummaryOut)
