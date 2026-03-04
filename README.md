@@ -17,6 +17,7 @@
 - `frontend/app.py`: Streamlit 前端
 - `backend/tests`: 自动化测试
 - `docker-compose.yml`: 一键启动
+- `docs/小白操作指南.md`: 非技术用户操作说明
 
 ## 默认账号
 

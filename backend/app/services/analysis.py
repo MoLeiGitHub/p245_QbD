@@ -31,9 +31,9 @@ def build_analysis_df(study: Study) -> pd.DataFrame:
 
 
 def _formula(response_name: str, factor_names: list[str]) -> str:
-    terms = factor_names.copy()
-    terms.extend([f'{a}:{b}' for a, b in combinations(factor_names, 2)])
-    return f"Q('{response_name}') ~ " + ' + '.join([f"Q('{t}')" for t in terms])
+    main_terms = [f"Q('{f}')" for f in factor_names]
+    interaction_terms = [f"Q('{a}'):Q('{b}')" for a, b in combinations(factor_names, 2)]
+    return f"Q('{response_name}') ~ " + ' + '.join(main_terms + interaction_terms)
 
 
 def _curvature_p(df: pd.DataFrame, response_name: str, factors: list[dict]) -> float | None:

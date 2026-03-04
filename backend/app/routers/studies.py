@@ -4,6 +4,7 @@ import io
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -131,6 +132,35 @@ def generate_doe(
     for m in run_models:
         db.refresh(m)
     return run_models
+
+
+@router.get('/{study_id}/runs', response_model=list[RunOut])
+def list_runs(study_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    study = get_study_or_404(study_id, db)
+    require_permission(db, user.id, study.project_id, Permission.REPORT_READ)
+    return db.query(Run).filter(Run.study_id == study.id).order_by(Run.run_order.asc()).all()
+
+
+@router.get('/{study_id}/results/template.csv')
+def download_results_template(study_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    study = get_study_or_404(study_id, db)
+    require_permission(db, user.id, study.project_id, Permission.REPORT_READ)
+
+    run_rows = db.query(Run).filter(Run.study_id == study.id).order_by(Run.run_order.asc()).all()
+    response_names = [r['name'] for r in study.responses]
+    if not run_rows:
+        raise HTTPException(status_code=400, detail='Generate DOE runs first before downloading template')
+
+    rows: list[dict] = []
+    for run in run_rows:
+        row = {'run_order': run.run_order}
+        for name in response_names:
+            row[name] = ''
+        rows.append(row)
+
+    csv_text = pd.DataFrame(rows).to_csv(index=False)
+    headers = {'Content-Disposition': f'attachment; filename=\"study-{study.id}-results-template.csv\"'}
+    return Response(content=csv_text, media_type='text/csv', headers=headers)
 
 
 @router.post('/{study_id}/results/import', response_model=ResultsImportOut)
